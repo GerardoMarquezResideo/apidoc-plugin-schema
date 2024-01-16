@@ -119,8 +119,8 @@ function isRequired(schema, key) {
 	if (schema.type === 'array') { schema = schema.items; }
 
 	// TODO figure out way to display when anyOf, oneOf
-	return (exists(Object.keys(schema),'required') && Array.isArray(schema.required) && (schema.required.indexOf(key) !== -1)) ||
-					(exists(Object.keys(schema.properties), key) && (typeof schema.properties[key].required === 'boolean') && schema.properties[key].required);
+	return (exists(Object.keys(schema),'required') && (schema.required.indexOf(key) !== -1)) ||
+					(exists(Object.keys(schema.properties), key) && schema.properties[key].required);
 }
 
 // NOTE this is not proper jsonschema, likely in v5 w/ merge
@@ -152,18 +152,31 @@ function traverse(schema, p, group) {
 	}*/
 
 	p = p || '';
+	
+	// Modification for AN360 API Documentation.
+    if (!p) {
+        // Use 'title' as the main object
+        var rootTitle = schema.title || "RootObject";
+        var rootType = makeType(schema);
+        var rootSize = makeSize(schema);
+        var rootAllowedValues = makeAllowedValues(schema);
+        var rootDescription = schema.description || "Root object description";
 
+        var rootField = '{' + rootType + rootSize + rootAllowedValues + '} ' + rootTitle + ' ' + rootDescription;
 
-	var properties = {};
-	//schema = mergeAllOf(schema);
-	if (isType(schema.type, 'object')){
-		properties = schema.properties;
-	} else if (isType(schema.type, 'array') && !schema.items) { // catch errors
-	  throw SyntaxError('ERROR: schema array missing items');
-	} else if (isType(schema.type, 'array') && schema.items.type === 'object') {
-		//schema.items = mergeAllOf(schema.items);
-		properties = schema.items.properties;
-	}
+        // Add the main object to the parameters.
+        params[rootTitle] = rootField;
+        p = rootTitle; // Place the title as the object root
+    }
+
+    var properties = {};
+    if (isType(schema.type, 'object')){
+        properties = schema.properties;
+    } else if (isType(schema.type, 'array') && !schema.items) {
+        throw SyntaxError('ERROR: schema array missing items');
+    } else if (isType(schema.type, 'array') && schema.items.type === 'object') {
+        properties = schema.items.properties;
+    }
 
 	//console.log('properties',properties);
 
@@ -177,9 +190,9 @@ function traverse(schema, p, group) {
 		var size = makeSize(param);
 		var allowedValues = makeAllowedValues(param);
 
-		var description = param.description || '';
+		var description = param.description;
 		if (param.type === 'array') {
-			description += ' '+ (param.items.description || '');
+			description += ' '+param.items.description;
 		}
 
 		// make field
